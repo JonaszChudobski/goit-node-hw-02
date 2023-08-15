@@ -1,4 +1,5 @@
 const service = require("../service");
+const { schemaContact, schemaFavorite } = require("../validation/validation");
 
 const get = async (req, res, next) => {
   try {
@@ -41,7 +42,12 @@ const getById = async (req, res, next) => {
 const create = async (req, res, next) => {
   const { name, email, phone } = req.body;
   try {
-    const result = await service.addContact({ name, email, phone });
+    const value = await schemaContact.validateAsync({ name, email, phone });
+    const result = await service.addContact({
+      name: value.name,
+      email: value.email,
+      phone: value.phone,
+    });
     res.json({
       status: "Created",
       code: 201,
@@ -81,7 +87,12 @@ const update = async (req, res, next) => {
   const { id } = req.params;
   const { name, email, phone } = req.body;
   try {
-    const result = await service.updateContact(id, { name, email, phone });
+    const value = await schemaContact.validateAsync({ name, email, phone });
+    const result = await service.updateContact(id, {
+      name: value.name,
+      email: value.email,
+      phone: value.phone,
+    });
     if (result) {
       res.json({
         status: "Success",
@@ -105,15 +116,18 @@ const update = async (req, res, next) => {
 const updateStatus = async (req, res, next) => {
   const { id } = req.params;
   const { favorite } = req.body;
-  if (favorite === "") {
-    res.json({
-      status: "Error",
-      code: 400,
-      message: "Missing field favorite",
-    });
-  } else {
-    try {
-      const result = await service.updateStatusContact(id, { favorite });
+  try {
+    const value = await schemaFavorite.validateAsync({ favorite });
+    if (!value) {
+      res.json({
+        status: "Error",
+        code: 400,
+        message: "Missing field favorite",
+      });
+    } else {
+      const result = await service.updateStatusContact(id, {
+        favorite: value.favorite,
+      });
       if (result) {
         res.json({
           status: "Success",
@@ -128,10 +142,10 @@ const updateStatus = async (req, res, next) => {
           data: "Not found",
         });
       }
-    } catch (error) {
-      console.error(error);
-      next(error);
     }
+  } catch (error) {
+    console.error(error);
+    next(error);
   }
 };
 
