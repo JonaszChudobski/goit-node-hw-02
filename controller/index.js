@@ -1,5 +1,11 @@
+const jwt = require("jsonwebtoken");
 const service = require("../service");
-const { schemaContact, schemaFavorite } = require("../validation/validation");
+const {
+  schemaContact,
+  schemaFavorite,
+  schemaUser,
+} = require("../validation/validation");
+const User = require("../service/schema/user");
 
 const get = async (req, res, next) => {
   try {
@@ -149,6 +155,84 @@ const updateStatus = async (req, res, next) => {
   }
 };
 
+const signup = async (req, res, next) => {
+  const { email, password } = req.body;
+  try {
+    const value = await schemaUser.validateAsync({
+      email,
+      password,
+    });
+    if (value.value === {}) {
+      res.json({
+        status: "Bad request",
+        code: 400,
+        message: `${value.error}`,
+      });
+    } else {
+      const user = await service.getUserByEmail({ email });
+      if (user) {
+        res.json({
+          status: "Conflict",
+          code: 409,
+          message: `Email ${email} already in use`,
+        });
+      } else {
+        const newUser = new User({ email });
+        newUser.setPassword(password);
+        await newUser.save();
+        res.json({
+          status: "Success",
+          code: 201,
+          message: "Registration successful",
+        });
+      }
+    }
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+};
+
+const login = async (req, res, next) => {
+  const { email, password } = req.body;
+  try {
+    const value = await schemaUser.validateAsync({
+      email,
+      password,
+    });
+    if (value.value === {}) {
+      res.json({
+        status: "Bad request",
+        code: 400,
+        message: `${value.error}`,
+      });
+    } else {
+      const user = await service.getUserByEmail({ email });
+      if (!user || !user.validPassword(password)) {
+        res.json({
+          status: "Error",
+          code: 400,
+          message: "Incorrect login or password",
+          data: "Bad request",
+        });
+      }
+      const payload = {
+        id: user.id,
+        username: user.username,
+      };
+      const token = jwt.sign(payload, secret, { expiresIn: "1h" });
+      res.json({
+        status: "Success",
+        code: 200,
+        data: { token },
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+};
+
 module.exports = {
   get,
   getById,
@@ -156,4 +240,6 @@ module.exports = {
   update,
   remove,
   updateStatus,
+  signup,
+  login,
 };
