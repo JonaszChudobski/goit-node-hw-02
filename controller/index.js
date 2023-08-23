@@ -1,3 +1,4 @@
+const passport = require("passport");
 const jwt = require("jsonwebtoken");
 const service = require("../service");
 const {
@@ -155,6 +156,21 @@ const updateStatus = async (req, res, next) => {
   }
 };
 
+const auth = (req, res, next) => {
+  passport.authenticate("jwt", { session: false }, (err, user) => {
+    if (!user || err) {
+      res.json({
+        status: "Error",
+        code: 401,
+        messageh: "Unathorized",
+        data: "Unauthorized",
+      });
+    }
+    req.user = user;
+    next();
+  })(req, res, next);
+};
+
 const signup = async (req, res, next) => {
   const { email, password } = req.body;
   try {
@@ -210,21 +226,49 @@ const login = async (req, res, next) => {
       const user = await service.getUserByEmail({ email });
       if (!user || !user.validPassword(password)) {
         res.json({
-          status: "Error",
-          code: 400,
+          status: "Unathorized",
+          code: 401,
           message: "Incorrect login or password",
-          data: "Bad request",
         });
       }
       const payload = {
         id: user.id,
-        username: user.username,
+        email: user.email,
       };
       const token = jwt.sign(payload, secret, { expiresIn: "1h" });
       res.json({
         status: "Success",
         code: 200,
-        data: { token },
+        data: {
+          token,
+          user: {
+            email: user.email,
+            subscription: "starter",
+          },
+        },
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+};
+
+const logout = async (req, res) => {
+  const { _id } = req.user;
+  try {
+    const user = await service.updateUser({ _id }, { token: null });
+    if (!user) {
+      res.json({
+        status: "Error",
+        code: 409,
+        message: "User not found",
+      });
+    } else {
+      res.json({
+        status: "Success",
+        code: 201,
+        message: "Logout successful",
       });
     }
   } catch (error) {
@@ -242,4 +286,6 @@ module.exports = {
   updateStatus,
   signup,
   login,
+  logout,
+  auth,
 };
