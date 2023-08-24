@@ -1,12 +1,5 @@
-const passport = require("passport");
-const jwt = require("jsonwebtoken");
-const service = require("../service");
-const {
-  schemaContact,
-  schemaFavorite,
-  schemaUser,
-} = require("../validation/validation");
-const User = require("../service/schema/user");
+const service = require("../service/contacts");
+const { schemaContact, schemaFavorite } = require("../validation/validation");
 
 const get = async (req, res, next) => {
   try {
@@ -156,127 +149,6 @@ const updateStatus = async (req, res, next) => {
   }
 };
 
-const auth = (req, res, next) => {
-  passport.authenticate("jwt", { session: false }, (err, user) => {
-    if (!user || err) {
-      res.json({
-        status: "Error",
-        code: 401,
-        messageh: "Unathorized",
-        data: "Unauthorized",
-      });
-    }
-    req.user = user;
-    next();
-  })(req, res, next);
-};
-
-const signup = async (req, res, next) => {
-  const { email, password } = req.body;
-  try {
-    const value = await schemaUser.validateAsync({
-      email,
-      password,
-    });
-    if (value.value === {}) {
-      res.json({
-        status: "Bad request",
-        code: 400,
-        message: `${value.error}`,
-      });
-    } else {
-      const user = await service.getUserByEmail({ email });
-      if (user) {
-        res.json({
-          status: "Conflict",
-          code: 409,
-          message: `Email ${email} already in use`,
-        });
-      } else {
-        const newUser = new User({ email });
-        newUser.setPassword(password);
-        await newUser.save();
-        res.json({
-          status: "Success",
-          code: 201,
-          message: "Registration successful",
-        });
-      }
-    }
-  } catch (error) {
-    console.error(error);
-    next(error);
-  }
-};
-
-const login = async (req, res, next) => {
-  const { email, password } = req.body;
-  try {
-    const value = await schemaUser.validateAsync({
-      email,
-      password,
-    });
-    if (value.value === {}) {
-      res.json({
-        status: "Bad request",
-        code: 400,
-        message: `${value.error}`,
-      });
-    } else {
-      const user = await service.getUserByEmail({ email });
-      if (!user || !user.validPassword(password)) {
-        res.json({
-          status: "Unathorized",
-          code: 401,
-          message: "Incorrect login or password",
-        });
-      }
-      const payload = {
-        id: user.id,
-        email: user.email,
-      };
-      const token = jwt.sign(payload, secret, { expiresIn: "1h" });
-      res.json({
-        status: "Success",
-        code: 200,
-        data: {
-          token,
-          user: {
-            email: user.email,
-            subscription: "starter",
-          },
-        },
-      });
-    }
-  } catch (error) {
-    console.error(error);
-    next(error);
-  }
-};
-
-const logout = async (req, res) => {
-  const { _id } = req.user;
-  try {
-    const user = await service.updateUser({ _id }, { token: null });
-    if (!user) {
-      res.json({
-        status: "Error",
-        code: 409,
-        message: "User not found",
-      });
-    } else {
-      res.json({
-        status: "Success",
-        code: 201,
-        message: "Logout successful",
-      });
-    }
-  } catch (error) {
-    console.error(error);
-    next(error);
-  }
-};
-
 module.exports = {
   get,
   getById,
@@ -284,8 +156,4 @@ module.exports = {
   update,
   remove,
   updateStatus,
-  signup,
-  login,
-  logout,
-  auth,
 };

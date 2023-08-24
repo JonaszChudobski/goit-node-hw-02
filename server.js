@@ -12,8 +12,13 @@ app.use(logger(formatsLogger));
 app.use(cors());
 app.use(express.json());
 
-const routerApi = require("./api");
-app.use("/api", routerApi);
+const contactsRouter = require("./api/contacts");
+const usersRouter = require("./api/users");
+
+require("./config/config-passport");
+
+app.use("/api/contacts", contactsRouter);
+app.use("/api/users", usersRouter);
 
 app.use((_, res, __) => {
   res.status(404).json({
@@ -45,7 +50,7 @@ const connection = mongoose.connect(uriDb, {
 connection
   .then(() => {
     app.listen(PORT, () => {
-      console.log('Database connection successful')
+      console.log("Database connection successful");
       console.log(`Server running. Use our API on port: ${PORT}`);
     });
   })
