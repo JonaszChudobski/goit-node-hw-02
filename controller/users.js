@@ -1,4 +1,5 @@
 const passport = require("passport");
+const passportJWT = require("passport-jwt");
 const jwt = require("jsonwebtoken");
 const service = require("../service/users");
 const { schemaUser } = require("../validation/validation");
@@ -9,7 +10,7 @@ const secret = process.env.SECRET;
 const auth = (req, res, next) => {
   passport.authenticate("jwt", { session: false }, (err, user) => {
     if (!user || err) {
-      res.json({
+      res.status(401).json({
         status: "Error",
         code: 401,
         message: "Unauthorized",
@@ -29,7 +30,7 @@ const signup = async (req, res, next) => {
       password,
     });
     if (value.value === {}) {
-      res.json({
+      res.status(400).json({
         status: "Bad request",
         code: 400,
         message: `${value.error}`,
@@ -37,7 +38,7 @@ const signup = async (req, res, next) => {
     } else {
       const user = await service.getUserByEmail({ email });
       if (user) {
-        res.json({
+        res.status(409).json({
           status: "Conflict",
           code: 409,
           message: `Email ${email} already in use`,
@@ -46,7 +47,7 @@ const signup = async (req, res, next) => {
         const newUser = new User({ email });
         newUser.setPassword(password);
         await newUser.save();
-        res.json({
+        res.status(201).json({
           status: "Created",
           code: 201,
           data: {
@@ -72,7 +73,7 @@ const login = async (req, res, next) => {
       password,
     });
     if (value.value === {}) {
-      res.json({
+      res.status(400).json({
         status: "Bad request",
         code: 400,
         message: `${value.error}`,
@@ -80,7 +81,7 @@ const login = async (req, res, next) => {
     } else {
       const user = await service.getUserByEmail({ email });
       if (!user || !user.validPassword(password)) {
-        res.json({
+        res.status(401).json({
           status: "Unauthorized",
           code: 401,
           message: "Incorrect login or password",
@@ -90,7 +91,7 @@ const login = async (req, res, next) => {
         id: user.id,
       };
       const token = jwt.sign(payload, secret, { expiresIn: "1h" });
-      res.json({
+      res.status(200).json({
         status: "Success",
         code: 200,
         data: {
@@ -111,20 +112,11 @@ const login = async (req, res, next) => {
 const logout = async (req, res, next) => {
   const { _id } = req.user;
   try {
-    const user = await service.getUserById({ _id });
-    if (!user) {
-      res.json({
-        status: "Unauthorized",
-        code: 401,
-        message: "Unauthorized",
-      });
-    } else {
-      await service.updateUser(_id, { token: null });
-      res.json({
-        status: "No content",
-        code: 204,
-      });
-    }
+    await service.updateUser(_id, { token: null });
+    res.status(204).json({
+      status: "No content",
+      code: 204,
+    });
   } catch (error) {
     console.error(error);
     next(error);
@@ -132,27 +124,18 @@ const logout = async (req, res, next) => {
 };
 
 const current = async (req, res, next) => {
-  const { _id } = req.user;
   try {
-    const user = await service.getUserById({ _id });
-    if (!user) {
-      res.json({
-        status: "Unauthorized",
-        code: 401,
-        message: "Unauthorized",
-      });
-    } else {
-      res.json({
-        status: "OK",
-        code: 200,
-        data: {
-          user: {
-            email: user.email,
-            subscription: user.subscription,
-          },
+    res.status(200).json({
+      status: "OK",
+      code: 200,
+      data: {
+        user: {
+          email: req.user.email,
+          subscription: req.user.subscription,
+          token: req.user.token,
         },
-      });
-    }
+      },
+    });
   } catch (error) {
     console.error(error);
     next(error);
