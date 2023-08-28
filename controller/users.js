@@ -1,5 +1,4 @@
 const passport = require("passport");
-const passportJWT = require("passport-jwt");
 const jwt = require("jsonwebtoken");
 const service = require("../service/users");
 const { schemaUser } = require("../validation/validation");
@@ -9,7 +8,11 @@ const secret = process.env.SECRET;
 
 const auth = (req, res, next) => {
   passport.authenticate("jwt", { session: false }, (err, user) => {
-    if (!user || err) {
+    if (
+      !user ||
+      err ||
+      req.headers.authorization.split(" ")[1] !== user.token
+    ) {
       res.status(401).json({
         status: "Error",
         code: 401,
@@ -91,6 +94,7 @@ const login = async (req, res, next) => {
         id: user.id,
       };
       const token = jwt.sign(payload, secret, { expiresIn: "1h" });
+      await service.updateUser(user._id, { token });
       res.status(200).json({
         status: "Success",
         code: 200,
