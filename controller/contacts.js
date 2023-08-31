@@ -1,10 +1,10 @@
-const service = require("../service");
+const service = require("../service/contacts");
 const { schemaContact, schemaFavorite } = require("../validation/validation");
 
 const get = async (req, res, next) => {
   try {
     const result = await service.listContacts();
-    res.json({
+    res.status(200).json({
       status: "Success",
       code: 200,
       data: { contacts: result },
@@ -20,14 +20,14 @@ const getById = async (req, res, next) => {
   try {
     const result = await service.getContactById(id);
     if (!result) {
-      res.json({
+      res.status(404).json({
         status: "Error",
         code: 404,
         message: `Not found contact id: ${id}`,
         data: "Not found",
       });
     } else {
-      res.json({
+      res.status(200).json({
         status: "Success",
         code: 200,
         data: { contact: result },
@@ -48,7 +48,7 @@ const create = async (req, res, next) => {
       email: value.email,
       phone: value.phone,
     });
-    res.json({
+    res.status(201).json({
       status: "Created",
       code: 201,
       data: { contact: result },
@@ -64,13 +64,13 @@ const remove = async (req, res, next) => {
   try {
     const result = await service.removeContact(id);
     if (result) {
-      res.json({
+      res.status(200).json({
         status: "Success",
         code: 200,
         data: { contact: result },
       });
     } else {
-      res.json({
+      res.status(404).json({
         status: "Error",
         code: 404,
         message: `Not found contact id: ${id}`,
@@ -94,13 +94,13 @@ const update = async (req, res, next) => {
       phone: value.phone,
     });
     if (result) {
-      res.json({
+      res.status(200).json({
         status: "Success",
         code: 200,
         data: { contact: result },
       });
     } else {
-      res.json({
+      res.status(404).json({
         status: "Error",
         code: 404,
         message: `Not found contact id: ${id}`,
@@ -119,7 +119,7 @@ const updateStatus = async (req, res, next) => {
   try {
     const value = await schemaFavorite.validateAsync({ favorite });
     if (!value) {
-      res.json({
+      res.status(400).json({
         status: "Error",
         code: 400,
         message: "Missing field favorite",
@@ -129,13 +129,13 @@ const updateStatus = async (req, res, next) => {
         favorite: value.favorite,
       });
       if (result) {
-        res.json({
+        res.status(200).json({
           status: "Success",
           code: 200,
           data: { contact: result },
         });
       } else {
-        res.json({
+        res.status(404).json({
           status: "Error",
           code: 404,
           message: `Not found contact id: ${id}`,
