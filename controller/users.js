@@ -5,6 +5,7 @@ const { schemaUser } = require("../validation/validation");
 const User = require("../service/schema/user");
 require("dotenv").config();
 const secret = process.env.SECRET;
+const gravatar = require("gravatar");
 
 const auth = (req, res, next) => {
   passport.authenticate("jwt", { session: false }, (err, user) => {
@@ -47,7 +48,8 @@ const signup = async (req, res, next) => {
           message: `Email ${email} already in use`,
         });
       } else {
-        const newUser = new User({ email });
+        const avatarURL = gravatar.url(email, { d: "retro" }, true);
+        const newUser = new User({ email, avatarURL });
         newUser.setPassword(password);
         await newUser.save();
         res.status(201).json({
@@ -57,6 +59,7 @@ const signup = async (req, res, next) => {
             user: {
               email,
               password,
+              avatarURL,
             },
           },
         });
