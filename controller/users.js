@@ -6,6 +6,13 @@ const User = require("../service/schema/user");
 require("dotenv").config();
 const secret = process.env.SECRET;
 const gravatar = require("gravatar");
+const createError = require("http-errors");
+const express = require("express");
+const path = require("path");
+const fs = require("fs").promises;
+const app = express();
+const uploadDir = path.join(process.cwd(), "uploads");
+const storeImage = path.join(process.cwd(), "images");
 
 const auth = (req, res, next) => {
   passport.authenticate("jwt", { session: false }, (err, user) => {
@@ -149,10 +156,24 @@ const current = async (req, res, next) => {
   }
 };
 
+const avatar = async (req, res, next) => {
+  const { description } = req.body;
+  const { path: temporaryName, originalname } = req.file;
+  const fileName = path.join(storeImage, originalname);
+  try {
+    await fs.rename(temporaryName, fileName);
+  } catch (error) {
+    await fs.unlink(temporaryName);
+    return next(error);
+  }
+  res.status(200).json({description, message: 'Plika załadowany pomyślnie', status: 200})
+};
+
 module.exports = {
   signup,
   login,
   logout,
   auth,
   current,
+  avatar,
 };
