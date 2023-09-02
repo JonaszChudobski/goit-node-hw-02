@@ -10,9 +10,7 @@ const createError = require("http-errors");
 const express = require("express");
 const path = require("path");
 const fs = require("fs").promises;
-const app = express();
-const uploadDir = path.join(process.cwd(), "uploads");
-const storeImage = path.join(process.cwd(), "images");
+const jimp = require("jimp");
 
 const auth = (req, res, next) => {
   passport.authenticate("jwt", { session: false }, (err, user) => {
@@ -157,16 +155,28 @@ const current = async (req, res, next) => {
 };
 
 const avatar = async (req, res, next) => {
-  const { description } = req.body;
-  const { path: temporaryName, originalname } = req.file;
-  const fileName = path.join(storeImage, originalname);
+  const { user } = req;
+  const { path: temporaryName } = req.file;
   try {
-    await fs.rename(temporaryName, fileName);
+    const image = await jimp.read(temporaryName);
+    image.cover(250, 250);
+    const newName = user._id;
+    await fs.rename(temporaryName, `public/avatars/${newName}.jpg`);
+    await User.findByIdAndUpdate(user._id, {
+      avatarURL: `/avatars/${newName}.jpg`,
+    });
+    res.status(200).json({
+      message: "File uploaded successfully",
+      status: 200,
+      data: {
+        user: {
+          avatarURL: `/avatars/${newName}.jpg`,
+        },
+      },
+    });
   } catch (error) {
-    await fs.unlink(temporaryName);
     return next(error);
   }
-  res.status(200).json({description, message: 'Plika załadowany pomyślnie', status: 200})
 };
 
 module.exports = {
