@@ -5,6 +5,12 @@ const { schemaUser } = require("../validation/validation");
 const User = require("../service/schema/user");
 require("dotenv").config();
 const secret = process.env.SECRET;
+const gravatar = require("gravatar");
+const createError = require("http-errors");
+const express = require("express");
+const path = require("path");
+const fs = require("fs").promises;
+const jimp = require("jimp");
 
 const auth = (req, res, next) => {
   passport.authenticate("jwt", { session: false }, (err, user) => {
@@ -47,7 +53,8 @@ const signup = async (req, res, next) => {
           message: `Email ${email} already in use`,
         });
       } else {
-        const newUser = new User({ email });
+        const avatarURL = gravatar.url(email, { d: "retro" }, true);
+        const newUser = new User({ email, avatarURL });
         newUser.setPassword(password);
         await newUser.save();
         res.status(201).json({
@@ -57,6 +64,7 @@ const signup = async (req, res, next) => {
             user: {
               email,
               password,
+              avatarURL,
             },
           },
         });
@@ -146,10 +154,36 @@ const current = async (req, res, next) => {
   }
 };
 
+const avatar = async (req, res, next) => {
+  const { user } = req;
+  const { path: temporaryName } = req.file;
+  try {
+    const image = await jimp.read(temporaryName);
+    image.cover(250, 250);
+    const newName = user._id;
+    await fs.rename(temporaryName, `public/avatars/${newName}.jpg`);
+    await User.findByIdAndUpdate(user._id, {
+      avatarURL: `/avatars/${newName}.jpg`,
+    });
+    res.status(200).json({
+      message: "File uploaded successfully",
+      status: 200,
+      data: {
+        user: {
+          avatarURL: `/avatars/${newName}.jpg`,
+        },
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   signup,
   login,
   logout,
   auth,
   current,
+  avatar,
 };
