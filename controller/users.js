@@ -6,11 +6,10 @@ const User = require("../service/schema/user");
 require("dotenv").config();
 const secret = process.env.SECRET;
 const gravatar = require("gravatar");
-const createError = require("http-errors");
-const express = require("express");
-const path = require("path");
 const fs = require("fs").promises;
 const jimp = require("jimp");
+const sendgrid = require("@sendgrid/mail");
+const uuid = require("uuid").v4();
 
 const auth = (req, res, next) => {
   passport.authenticate("jwt", { session: false }, (err, user) => {
@@ -54,9 +53,18 @@ const signup = async (req, res, next) => {
         });
       } else {
         const avatarURL = gravatar.url(email, { d: "retro" }, true);
-        const newUser = new User({ email, avatarURL });
+        const verificationToken = uuid;
+        const newUser = new User({ email, avatarURL, verificationToken });
         newUser.setPassword(password);
         await newUser.save();
+        const link = `localhost:3000/api/users/verify/${verificationToken}`;
+        const message = {
+          to: newUser.email,
+          from: process.env.SENDGRID_EMAIL,
+          subject: "Email address verification",
+          html: `<p>Click <a href="${link}">here</a> to verificate your email address.</p>`,
+        };
+        await sendgrid(message);
         res.status(201).json({
           status: "Created",
           code: 201,
@@ -96,6 +104,13 @@ const login = async (req, res, next) => {
           status: "Unauthorized",
           code: 401,
           message: "Incorrect login or password",
+        });
+      }
+      if (!user.verify) {
+        res.status(401).json({
+          status: "Unauthorized",
+          code: 401,
+          message: "User's email not verified",
         });
       }
       const payload = {
@@ -175,7 +190,83 @@ const avatar = async (req, res, next) => {
       },
     });
   } catch (error) {
-    return next(error);
+    console.error(error);
+    next(error);
+  }
+};
+
+const verification = async (req, res, next) => {
+  const { verificationToken } = req.params;
+  try {
+    const user = service.getUserByVerificationToken(verificationToken);
+    if (user) {
+      await service.updateUser(user._id, {
+        verificationToken: null,
+        verify: true,
+      });
+      res.status(200).json({
+        status: "OK",
+        code: 200,
+        message: "Verification successful",
+      });
+    } else {
+      res.status(404).json({
+        status: "Not found",
+        code: 404,
+        message: "User not found",
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+};
+
+const verificationEmail = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({
+        status: "Bad request",
+        code: 400,
+        message: "Missing required field: email",
+      });
+    } else {
+      const user = await service.getUserByEmail(email);
+      if (!user) {
+        res.status(404).json({
+          status: "Not found",
+          code: 404,
+          message: "User not found",
+        });
+      }
+      if (user.verify) {
+        res.status(400).json({
+          status: "Bad request",
+          code: 400,
+          message: "Email already verified",
+        });
+      } else {
+        const verificationToken = uuid;
+        await service.updateUser(email, { verificationToken });
+        const link = `localhost:3000/api/users/verify/${verificationToken}`;
+        const message = {
+          to: newUser.email,
+          from: process.env.SENDGRID_EMAIL,
+          subject: "Email address verification",
+          html: `<p>Click <a href="${link}">here</a> to verificate your email address.</p>`,
+        };
+        await sendgrid(message);
+        res.status(200).json({
+          status: "OK",
+          code: 200,
+          message: "Verification email sent",
+        });
+      }
+    }
+  } catch (error) {
+    console.error(error);
+    next(error);
   }
 };
 
@@ -186,4 +277,6 @@ module.exports = {
   auth,
   current,
   avatar,
+  verification,
+  verificationEmail,
 };
