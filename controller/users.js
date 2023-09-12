@@ -37,7 +37,7 @@ const signup = async (req, res, next) => {
       email,
       password,
     });
-    if (value.value === {}) {
+    if (!value.value) {
       res.status(400).json({
         status: "Bad request",
         code: 400,
@@ -91,7 +91,7 @@ const login = async (req, res, next) => {
       email,
       password,
     });
-    if (value.value === {}) {
+    if (!value.value) {
       res.status(400).json({
         status: "Bad request",
         code: 400,
@@ -225,23 +225,26 @@ const verification = async (req, res, next) => {
 const verificationEmail = async (req, res, next) => {
   try {
     const { email } = req.body;
-    if (!email) {
+    const value = await schemaUser.validateAsync({
+      email,
+    });
+    if (!value.value) {
       res.status(400).json({
         status: "Bad request",
         code: 400,
-        message: "Missing required field: email",
-      });
+        message: `${value.error}`,
+      })
     } else {
       const user = await service.getUserByEmail(email);
       if (!user) {
-        res.status(404).json({
+        return res.status(404).json({
           status: "Not found",
           code: 404,
           message: "User not found",
         });
       }
       if (user.verify) {
-        res.status(400).json({
+        return res.status(400).json({
           status: "Bad request",
           code: 400,
           message: "Email already verified",
